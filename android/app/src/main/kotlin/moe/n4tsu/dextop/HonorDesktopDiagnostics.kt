@@ -74,7 +74,7 @@ internal class HonorDesktopDiagnostics(private val context: Context) {
             appendCommand("services", arrayOf("sh", "-c", "service list | grep -Ei 'display|window|desktop|projection|pcmanager|magic'"))
             append("\n[ACTIVE DESKTOP COMPONENTS]\n")
             // Extract only component names. Never include intents, URIs, window titles or app content.
-            val activities = access.execute("dumpsys", "activity", "activities")
+            val activities = access.execute("sh", "-c", "dumpsys activity activities | grep -oE '(com\\.hihonor|com\\.honor|com\\.huawei)\\.[A-Za-z0-9_.$]+/[A-Za-z0-9_.$]+' | sort -u | head -80")
             append("activityQueryExit=${activities.exitCode}\n")
             Regex("(?:com\\.hihonor|com\\.honor|com\\.huawei)\\.[A-Za-z0-9_.$]+/[A-Za-z0-9_.$]+")
                 .findAll(activities.output).map { it.value }.distinct().take(80).forEach { append("$it\n") }

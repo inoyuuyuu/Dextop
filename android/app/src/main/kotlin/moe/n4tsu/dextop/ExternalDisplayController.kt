@@ -58,8 +58,7 @@ internal class ExternalDisplayController(private val context: Context) {
         try {
             val quotedDir = quote(directory)
             val rollback = restoreScript(record, screen.id)
-            val guardian = "sleep 30\nif mkdir $quotedDir/decision 2>/dev/null; then\n" +
-                "if ${identityGuard(screen.id, screen.identity)}; then\n$rollback\nfi\nfi\n"
+            val guardian = ExternalDisplayRecovery.watchdog(directory, rollback)
             command("sh", "-c", "umask 077\nmkdir $quotedDir || exit 1\n" +
                 "nohup sh -c ${quote(guardian)} </dev/null >$quotedDir/watchdog.log 2>&1 &\n" +
                 "watchdog_pid=\$!\nkill -0 \$watchdog_pid")
@@ -106,6 +105,7 @@ internal class ExternalDisplayController(private val context: Context) {
     }
 
     fun revert(trial: Trial) = synchronized(lock) {
+        if (prefs.getString(PENDING, null) != trial.record.toString()) return@synchronized
         check(restorePending(trial.record)) { "復元待ちです。同じモニターを再接続して再検出してください / Reconnect the same monitor, then refresh to restore" }
     }
 
@@ -145,22 +145,10 @@ internal class ExternalDisplayController(private val context: Context) {
         check(result.succeeded) { "復元に失敗しました / Restore failed: ${result.error}" }
     }
 
-    private fun restoreScript(record: JSONObject, displayId: Int): String = buildString {
-        require(displayId > 0)
-        append("restore_result=0\n")
-        if (record.getBoolean("sizeChanged")) {
-            append(identityGuard(displayId, record.getString("identity")) + " || exit 1\n")
-            val width = record.optIntOrNull("overrideWidth")
-            val value = if (width == null) "reset" else "${width}x${record.getInt("overrideHeight") }"
-            append("wm size $value -d $displayId || restore_result=1\n")
-        }
-        if (record.getBoolean("dpiChanged")) {
-            append(identityGuard(displayId, record.getString("identity")) + " || exit 1\n")
-            val value = record.optIntOrNull("overrideDensity")?.toString() ?: "reset"
-            append("wm density $value -d $displayId || restore_result=1\n")
-        }
-        append("exit \$restore_result")
-    }
+    private fun restoreScript(record: JSONObject, displayId: Int): String = ExternalDisplayRecovery.restore(
+        displayId, record.getString("identity"), record.getBoolean("sizeChanged"), record.getBoolean("dpiChanged"),
+        record.optIntOrNull("overrideWidth"), record.optIntOrNull("overrideHeight"), record.optIntOrNull("overrideDensity")
+    )
 
     private fun awaitMetrics(screen: Screen, width: Int, height: Int, density: Int) {
         repeat(12) {
@@ -186,11 +174,7 @@ internal class ExternalDisplayController(private val context: Context) {
         Display::class.java.getMethod("getUniqueId").invoke(display) as String
     }.getOrDefault("")
 
-    private fun identityGuard(displayId: Int, uniqueId: String): String {
-        require(displayId > 0 && uniqueId.isNotBlank())
-        return "dumpsys display | grep -F -- ${quote("uniqueId \"$uniqueId\"")} | " +
-            "grep -E -- ${quote("displayId $displayId([, }]|$)")} >/dev/null"
-    }
+    private fun identityGuard(displayId: Int, uniqueId: String) = ExternalDisplayRecovery.identityGuard(displayId, uniqueId)
 
     private fun cleanup(record: JSONObject) {
         val directory = record.getString("directory")
