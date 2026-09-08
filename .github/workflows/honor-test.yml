@@ -1,0 +1,54 @@
+name: HONOR Test APK
+
+on:
+  push:
+    branches: [codex/honor-display-tools]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: honor-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.6
+          cache: true
+      - run: flutter pub get
+      - name: Prepare public AOSP development signing identity
+        shell: bash
+        run: |
+          signing_dir="$(mktemp -d)"
+          signing_source="https://raw.githubusercontent.com/aosp-mirror/platform_build/045a3d6a3e359633a14853a5a5e1e4f2a11cbdae/target/product/security"
+          curl --fail --location "$signing_source/testkey.pk8" -o "$signing_dir/testkey.pk8"
+          curl --fail --location "$signing_source/testkey.x509.pem" -o "$signing_dir/testkey.x509.pem"
+          openssl pkcs8 -inform DER -nocrypt -in "$signing_dir/testkey.pk8" -out "$signing_dir/testkey.pem"
+          openssl pkcs12 -export -in "$signing_dir/testkey.x509.pem" -inkey "$signing_dir/testkey.pem" -out android/honor-test-debug.keystore -password pass:android -name androiddebugkey
+          rm -rf "$signing_dir"
+      - run: flutter analyze
+      - run: flutter test
+      - name: Android unit tests
+        working-directory: android
+        run: ./gradlew testHonorDebugUnitTest
+      - name: Build standalone ARM64 test APK
+        run: flutter build apk --flavor honor --debug --target-platform android-arm64 --dart-define=DISTRIBUTION_CHANNEL=github
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dextop-honor-test1-${{ github.sha }}
+          path: build/app/outputs/flutter-apk/app-honor-debug.apk
+          if-no-files-found: error
+          retention-days: 30

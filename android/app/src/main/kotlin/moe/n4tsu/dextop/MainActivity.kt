@@ -409,6 +409,15 @@ open class MainActivity : FlutterActivity() {
                 }.start()
                 "launchApp" -> launchApp(call.arguments as? Map<*, *>, result)
                 "diagnostics" -> result.success(DeviceDiagnostics(this).report())
+                "openExternalDisplayTools" -> runCatching {
+                    startActivity(
+                        Intent(this, ExternalDisplayToolsActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        android.app.ActivityOptions.makeBasic()
+                            .setLaunchDisplayId(android.view.Display.DEFAULT_DISPLAY).toBundle()
+                    )
+                    result.success(null)
+                }.onFailure { result.error("EXTERNAL_DISPLAY_TOOLS", it.message, null) }
                 "samsungDesktopSettings" -> runCatching {
                     SamsungDesktopSettings(this).read()
                 }.onSuccess(result::success).onFailure {

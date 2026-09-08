@@ -203,6 +203,9 @@ class DisplayProfile {
 class NativeBridge {
   static const channel = MethodChannel('app.freedextop/display');
 
+  Future<void> openExternalDisplayTools() =>
+      channel.invokeMethod<void>('openExternalDisplayTools');
+
   Future<Map<String, dynamic>> status() async {
     return await channel.invokeMapMethod<String, dynamic>('status') ?? {};
   }
