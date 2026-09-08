@@ -30,6 +30,7 @@ internal class HonorDesktopDiagnostics(private val context: Context) {
         val externalPrefs = context.getSharedPreferences("external_display_trials_v1", Context.MODE_PRIVATE)
         append("externalAdjustment=${externalPrefs.getString("lastResult", "not tried")}\n")
         append("externalRecoveryPending=${externalPrefs.contains("pending")}\n")
+        append("externalLastError=${externalPrefs.getString("lastUiError", "none")}\n")
         CapabilityProbe(context, access).run().forEach { (key, value) -> append("probe.$key=$value\n") }
         append("\n[DISPLAY SNAPSHOT]\n")
         val external = ExternalDisplayDetector(context).snapshot().displayIds
@@ -70,6 +71,8 @@ internal class HonorDesktopDiagnostics(private val context: Context) {
             append("$it=${Settings.Global.getString(context.contentResolver, it)}\n")
         }
         if (access.isAvailable()) {
+            append("\n[FRAMEWORK DISPLAY ATTRIBUTES]\n")
+            appendCommand("display attributes", arrayOf("sh", "-c", "dumpsys display | grep -E 'mBaseDisplayInfo=|mOverrideDisplayInfo=' | head -20"))
             append("\n[OEM SERVICES]\n")
             appendCommand("services", arrayOf("sh", "-c", "service list | grep -Ei 'display|window|desktop|projection|pcmanager|magic'"))
             append("\n[ACTIVE DESKTOP COMPONENTS]\n")
@@ -81,12 +84,16 @@ internal class HonorDesktopDiagnostics(private val context: Context) {
             appendCommand("desktop globals", arrayOf("sh", "-c", "settings list global | grep -Ei '^[a-z0-9_.]*(desktop|pc_mode|projection)[a-z0-9_.]*='"))
             appendCommand("desktop system", arrayOf("sh", "-c", "settings list system | grep -Ei '^[a-z0-9_.]*(desktop|pc_mode|projection)[a-z0-9_.]*='"))
         }
-        append("\n[DEXTOP SESSION LOG]\n")
-        append(OperationLog.readLastSession(context).takeLast(30_000))
+        val previousLog = OperationLog.readLastSession(context).takeLast(20_000)
+        val currentLog = OperationLog.read(context).takeLast(20_000)
+        if (previousLog != currentLog) {
+            append("\n[PREVIOUS DEXTOP SESSION LOG]\n")
+            append(previousLog)
+        }
         append("\n[CURRENT LOG]\n")
         // The normal diagnostics report already includes the last completed session;
         // current startup attempts are useful while the failed session is still open.
-        append(OperationLog.read(context).takeLast(30_000))
+        append(currentLog)
     }.replace(Regex("(?i)\\b(?:[0-9a-f]{2}:){5}[0-9a-f]{2}\\b"), "[MAC redacted]")
 
     private fun reflectDisplay(display: Display, method: String): Any? = runCatching {

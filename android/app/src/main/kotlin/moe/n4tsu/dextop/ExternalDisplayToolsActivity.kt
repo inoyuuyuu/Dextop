@@ -223,6 +223,8 @@ class ExternalDisplayToolsActivity : Activity() {
                     complete(it)
                 }.onFailure {
                     status.text = tr("適用できませんでした：", "Operation failed: ") + (it.cause?.message ?: it.message)
+                    getSharedPreferences("external_display_trials_v1", MODE_PRIVATE).edit()
+                        .putString("lastUiError", status.text.toString()).apply()
                     if (trial != null) {
                         confirmation?.setMessage(status.text)
                         // A failed confirmation must never leave an unconfirmed override behind.

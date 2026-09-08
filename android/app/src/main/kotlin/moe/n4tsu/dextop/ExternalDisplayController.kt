@@ -53,7 +53,10 @@ internal class ExternalDisplayController(private val context: Context) {
             .put("overrideHeight", before.overrideHeight ?: JSONObject.NULL)
             .put("overrideDensity", before.overrideDensity ?: JSONObject.NULL)
         // Verify the exact OEM dump format before relying on the out-of-process watchdog.
-        command("sh", "-c", identityGuard(screen.id, screen.identity))
+        val identityCheck = access.execute("sh", "-c", identityGuard(screen.id, screen.identity))
+        check(identityCheck.succeeded) {
+            "画面の識別情報を確認できません。診断②を保存してください / Cannot verify this display; save diagnostic 2. ${identityCheck.error}"
+        }
         check(prefs.edit().putString(PENDING, record.toString()).commit()) { "Cannot save recovery journal" }
         try {
             val quotedDir = quote(directory)
