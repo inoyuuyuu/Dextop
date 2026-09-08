@@ -45,6 +45,14 @@ class ExternalDisplayToolsActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // This page is also used before any MirrorService session has started.
+        // Initialize the same reflection access locally rather than depending on
+        // a successful desktop launch to expose Display.getType/getUniqueId.
+        runCatching {
+            org.lsposed.hiddenapibypass.HiddenApiBypass.addHiddenApiExemptions(
+                "Landroid/view/Display;", "Landroid/view/IWindowManager;", "Landroid/view/SurfaceControl;"
+            )
+        }.onFailure { android.util.Log.w("DextopExternalDisplay", "Display reflection unavailable", it) }
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(16), dp(20), dp(24))
