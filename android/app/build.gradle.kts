@@ -80,6 +80,13 @@ android {
             buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"play\"")
             buildConfigField("boolean", "EMBEDDED_STELLAR", "true")
         }
+        create("honor") {
+            dimension = "distribution"
+            applicationId = "io.github.inoyuuyuu.dextop.honortest"
+            versionNameSuffix = "-honor-test1"
+            buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"github\"")
+            buildConfigField("boolean", "EMBEDDED_STELLAR", "true")
+        }
     }
 
     buildFeatures {
@@ -101,6 +108,13 @@ android {
     }
 
     signingConfigs {
+        // Public test-only identity, never a production signing key.
+        create("honorTest") {
+            storeFile = rootProject.file("honor-test-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         if (releaseSigningReady) {
             create("release") {
                 storeFile = rootProject.file("../$releaseKeystore")
@@ -125,6 +139,12 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
+    productFlavors.getByName("honor").signingConfig = signingConfigs.getByName("honorTest")
+    productFlavors.getByName("github").signingConfig = signingConfigs.getByName("debug")
+    productFlavors.getByName("play").signingConfig = signingConfigs.getByName("debug")
+    // Select debug signing per flavor. Release signing, when configured above,
+    // still takes precedence over flavor defaults.
+    buildTypes.getByName("debug").signingConfig = null
 }
 
 flutter {

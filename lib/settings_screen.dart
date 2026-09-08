@@ -499,6 +499,31 @@ extension _SettingsContent on _HomeScreenState {
         children: [
           _displaySettingsSection(currentLocalizations().uiDisplayCategory, [
             ListTile(
+              leading: const Icon(Icons.tune_rounded),
+              title: Text(
+                Localizations.localeOf(context).languageCode == 'ja'
+                    ? '外部画面・HONOR診断（検証版1）'
+                    : 'External display & HONOR diagnostics (Test 1)',
+              ),
+              subtitle: Text(
+                Localizations.localeOf(context).languageCode == 'ja'
+                    ? 'DPI・作業領域の調整、自動復元、診断のコピー'
+                    : 'DPI, working area, automatic rollback and diagnostics',
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () async {
+                try {
+                  await bridge.openExternalDisplayTools();
+                } catch (error) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(error.toString())),
+                  );
+                }
+              },
+            ),
+            const Divider(height: 1),
+            ListTile(
               leading: const Icon(Icons.desktop_windows_outlined),
               title: Text(currentLocalizations().displaySettingsTitle),
               subtitle: Text(currentLocalizations().displaySettingsSummary),
